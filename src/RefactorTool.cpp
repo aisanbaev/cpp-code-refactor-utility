@@ -1,15 +1,10 @@
+#include "RefactorTool.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/Frontend/FrontendActions.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/Support/CommandLine.h"
-
 #include <unordered_set>
-
-#include "RefactorTool.h"
 
 using namespace clang;
 using namespace clang::ast_matchers;

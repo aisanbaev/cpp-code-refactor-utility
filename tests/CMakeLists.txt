@@ -1,14 +1,3 @@
-cmake_minimum_required(VERSION 3.30)
-project(refactor_tool VERSION 1.0.0 LANGUAGES CXX)
-
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wfatal-errors)
-endif()
-
 #----------------------------------------------------------------------------------------------------------------------
 # testing framework
 #----------------------------------------------------------------------------------------------------------------------
@@ -38,32 +27,18 @@ file(GLOB TEST_SRC_FILES
 add_executable(refactor_tool_tests "${TEST_SRC_FILES}")
 target_include_directories(refactor_tool_tests
     PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
         ${gtest_SOURCE_DIR}/include
         ${gtest_SOURCE_DIR}
 )
 
-target_include_directories(refactor_tool_tests
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include
-        ${CMAKE_CURRENT_SOURCE_DIR}/..
-)
-
-target_link_libraries(refactor_tool_tests PRIVATE 
-    GTest::gtest_main
+target_link_libraries(refactor_tool_tests PRIVATE
+    GTest::gtest
     clangTooling
-    clangBasic
     clangASTMatchers
-    clangAST
     clangFrontend
-    clangLex
-    clangParse
-    clangSema
-    clangEdit
     clangRewrite
-    LLVMCore
     LLVMSupport
-    LLVMAnalysis
 )
-target_include_directories(refactor_tool_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_test(NAME refactor_tool_tests COMMAND refactor_tool_tests)

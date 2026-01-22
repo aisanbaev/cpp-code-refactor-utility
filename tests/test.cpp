@@ -1,6 +1,4 @@
-#include "../include/RefactorTool.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
+#include "RefactorTool.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/Tooling.h"
 #include <gtest/gtest.h>
@@ -118,4 +116,111 @@ void foo() {
 )cpp";
 
     EXPECT_EQ(applyRefactorings(Input), Input);
+}
+
+TEST(RefactoringTest, MultipleChangesInOneFile) {
+    constexpr const char *Input = R"cpp(
+class Base {
+public:
+    ~Base() {}
+    virtual void foo() {}
+};
+
+class Derived : public Base {
+public:
+    void foo() {}
+};
+
+#include <vector>
+#include <string>
+void test() {
+    std::vector<std::string> vec;
+    for (const std::string item : vec) {}
+}
+)cpp";
+
+    constexpr const char *Expected = R"cpp(
+class Base {
+public:
+    virtual ~Base() {}
+    virtual void foo() {}
+};
+
+class Derived : public Base {
+public:
+    void foo() override {}
+};
+
+#include <vector>
+#include <string>
+void test() {
+    std::vector<std::string> vec;
+    for (const std::string& item : vec) {}
+}
+)cpp";
+
+    EXPECT_EQ(applyRefactorings(Input), Expected);
+}
+
+TEST(RefactoringTest, NoChangesForCorrectCode) {
+    constexpr const char *Input = R"cpp(
+class GoodBase {
+public:
+    virtual ~GoodBase() {}
+    virtual void method() {}
+};
+
+class GoodDerived : public GoodBase {
+public:
+    void method() override {}
+};
+
+#include <vector>
+#include <string>
+void test() {
+    std::vector<std::string> vec;
+    for (const std::string& item : vec) {}
+}
+)cpp";
+
+    // Код уже правильный - не должно быть изменений
+    EXPECT_EQ(applyRefactorings(Input), Input);
+}
+
+// Проверяем, что шаблонные базовые классы с наследниками тоже получают virtual деструктор
+TEST(RefactoringTest, TemplateClassWithDestructor) {
+    constexpr const char *Input = R"cpp(
+template<typename T>
+class Base {
+public:
+    ~Base() {}
+};
+
+class Derived : public Base<int> {};
+)cpp";
+
+    constexpr const char *Expected = R"cpp(
+template<typename T>
+class Base {
+public:
+    virtual ~Base() {}
+};
+
+class Derived : public Base<int> {};
+)cpp";
+
+    EXPECT_EQ(applyRefactorings(Input), Expected);
+}
+
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    int result = RUN_ALL_TESTS();
+
+    // Используем _exit вместо exit/return, чтобы избежать ошибок при финализации
+    // глобальных объектов LLVM/ClVM (например, "pure virtual method called",
+    // "free(): invalid pointer"), которые возникают из-за неправильного порядка
+    // уничтожения статических объектов в shared-библиотеках Clang/LLVM.
+    // Это безопасно в юнит-тестах, так как все ресурсы уже обработаны,
+    // а graceful shutdown не требуется.
+    _exit(result);
 }
