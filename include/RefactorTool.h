@@ -10,6 +10,10 @@
 
 #include <unordered_set>
 
+clang::ast_matchers::DeclarationMatcher NvDtorMatcher();
+clang::ast_matchers::DeclarationMatcher NoOverrideMatcher();
+clang::ast_matchers::StatementMatcher NoRefConstVarInRangeLoopMatcher();
+
 class RefactorHandler : public clang::ast_matchers::MatchFinder::MatchCallback {
 public:
     explicit RefactorHandler(clang::Rewriter &Rewrite) : Rewrite(Rewrite) {}
@@ -17,7 +21,7 @@ public:
     // Мы проверяем тип совпадения по bind-именам и применяем рефакторинг.
     virtual void run(const clang::ast_matchers::MatchFinder::MatchResult &Result) override;
 
-private:
+protected:
     // 1. Невиртуальные деструкторы
     void handle_nv_dtor(const clang::CXXDestructorDecl *Dtor, clang::DiagnosticsEngine &Diag, clang::SourceManager &SM,
                         clang::ASTContext &Context);
@@ -32,8 +36,10 @@ private:
 private:
     bool hasDerivedClass(const clang::CXXRecordDecl *Base, clang::ASTContext &Context);
 
-private:
+protected:
     clang::Rewriter &Rewrite;
+
+private:
     std::unordered_set<unsigned> virtualDtorLocations;
     std::unordered_set<unsigned> overrideLocations;
     std::unordered_set<unsigned> crangeForLocations;

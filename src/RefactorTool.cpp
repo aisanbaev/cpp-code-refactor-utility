@@ -15,8 +15,6 @@ using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::tooling;
 
-static llvm::cl::OptionCategory ToolCategory("refactor-tool options");
-
 // Метод run вызывается для каждого совпадения с матчем.
 // Мы проверяем тип совпадения по bind-именам и применяем рефакторинг.
 void RefactorHandler::run(const MatchFinder::MatchResult &Result) {
@@ -90,7 +88,7 @@ void RefactorHandler::handle_miss_override(const CXXMethodDecl *Method, Diagnost
         InsertLoc = Method->getEndLoc();
     }
 
-    Rewrite.InsertTextBefore(InsertLoc, " override");
+    Rewrite.InsertTextBefore(InsertLoc, "override ");
 
     const unsigned DiagID = Diag.getCustomDiagID(DiagnosticsEngine::Remark, "Added 'override' to overriding method");
     Diag.Report(Method->getLocation(), DiagID);
@@ -123,17 +121,17 @@ void RefactorHandler::handle_crange_for(const VarDecl *LoopVar, DiagnosticsEngin
     Diag.Report(LoopVar->getLocation(), DiagID);
 }
 
-auto NvDtorMatcher() {
+clang::ast_matchers::DeclarationMatcher NvDtorMatcher() {
     return cxxDestructorDecl(unless(isVirtual()), unless(isImplicit()), isExpansionInMainFile()).bind("nonVirtualDtor");
 }
 
-auto NoOverrideMatcher() {
+clang::ast_matchers::DeclarationMatcher NoOverrideMatcher() {
     return cxxMethodDecl(isOverride(), unless(hasAttr(clang::attr::Override)), unless(isImplicit()),
                          unless(cxxDestructorDecl()), isExpansionInMainFile())
         .bind("missingOverride");
 }
 
-auto NoRefConstVarInRangeLoopMatcher() {
+clang::ast_matchers::StatementMatcher NoRefConstVarInRangeLoopMatcher() {
     return cxxForRangeStmt(
         hasLoopVariable(varDecl(hasType(qualType(isConstQualified(), unless(referenceType()), unless(builtinType()))),
                                 isExpansionInMainFile())
@@ -167,18 +165,4 @@ void CodeRefactorAction::EndSourceFileAction() {
     if (RewriterForCodeRefactor.overwriteChangedFiles()) {
         llvm::errs() << "Error applying changes to files.\n";
     }
-}
-
-int main(int argc, const char **argv) {
-    // Парсер опций: Обрабатывает флаги командной строки, компиляционные базы данных.
-    auto ExpectedParser = CommonOptionsParser::create(argc, argv, ToolCategory);
-    if (!ExpectedParser) {
-        llvm::errs() << ExpectedParser.takeError();
-        return 1;
-    }
-    CommonOptionsParser &OptionsParser = ExpectedParser.get();
-    // Создаем ClangTool
-    ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
-    // Запускаем RefactorAction.
-    return Tool.run(newFrontendActionFactory<CodeRefactorAction>().get());
 }

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(clang-tutor)
+enable_testing()
 
 #===============================================================================
 # 0. GET CLANG INSTALLATION DIR

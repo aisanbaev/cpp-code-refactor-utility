@@ -30,12 +30,40 @@ FetchContent_MakeAvailable(googletest)
 #
 
 # Рекурсивно ищем все используемые в тестах .cpp файлы
-file(GLOB TEST_SRC_FILES "${CMAKE_SOURCE_DIR}/tests/*.cpp")
+file(GLOB TEST_SRC_FILES 
+    "${CMAKE_SOURCE_DIR}/tests/*.cpp"
+    "${CMAKE_SOURCE_DIR}/src/RefactorTool.cpp"
+)
 
-add_executable(${PROJECT_NAME}_tests "${TEST_SRC_FILES}")
-target_link_libraries(${PROJECT_NAME}_tests PRIVATE gtest_main)
-target_include_directories(${PROJECT_NAME}_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_executable(refactor_tool_tests "${TEST_SRC_FILES}")
+target_include_directories(refactor_tool_tests
+    PRIVATE
+        ${gtest_SOURCE_DIR}/include
+        ${gtest_SOURCE_DIR}
+)
 
+target_include_directories(refactor_tool_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+        ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
 
-include(GoogleTest)
-gtest_discover_tests(refactor_tool_tests)
+target_link_libraries(refactor_tool_tests PRIVATE 
+    GTest::gtest_main
+    clangTooling
+    clangBasic
+    clangASTMatchers
+    clangAST
+    clangFrontend
+    clangLex
+    clangParse
+    clangSema
+    clangEdit
+    clangRewrite
+    LLVMCore
+    LLVMSupport
+    LLVMAnalysis
+)
+target_include_directories(refactor_tool_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_test(NAME refactor_tool_tests COMMAND refactor_tool_tests)
