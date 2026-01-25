@@ -53,9 +53,8 @@ void RefactorHandler::handle_nv_dtor(const CXXDestructorDecl *Dtor, DiagnosticsE
         return;
 
     unsigned rawLoc = SM.getSpellingLoc(Dtor->getLocation()).getRawEncoding();
-    if (virtualDtorLocations.count(rawLoc))
+    if (!virtualDtorLocations.emplace(rawLoc).second)
         return;
-    virtualDtorLocations.insert(rawLoc);
 
     Rewrite.InsertTextBefore(Dtor->getSourceRange().getBegin(), "virtual ");
 
@@ -69,21 +68,22 @@ void RefactorHandler::handle_miss_override(const CXXMethodDecl *Method, Diagnost
         return;
 
     unsigned rawLoc = SM.getSpellingLoc(Method->getLocation()).getRawEncoding();
-    if (overrideLocations.count(rawLoc))
+    if (!overrideLocations.emplace(rawLoc).second)
         return;
-    overrideLocations.insert(rawLoc);
 
     SourceLocation InsertLoc;
 
-    if (const Stmt *Body = Method->getBody()) {
-        // Метод с телом: вставляем перед '{'
-        InsertLoc = Body->getBeginLoc();
-    } else {
-        // Без тела: вставляем в конец объявления (перед ';' или '= 0')
-        InsertLoc = Method->getEndLoc();
+    // Пытаемся найти позицию сразу после закрывающей скобки параметров
+    if (const auto *TSI = Method->getTypeSourceInfo()) {
+        if (auto FTL = TSI->getTypeLoc().getAs<FunctionTypeLoc>()) {
+            InsertLoc = Lexer::getLocForEndOfToken(FTL.getRParenLoc(), 0, SM, Rewrite.getLangOpts());
+        }
     }
 
-    Rewrite.InsertTextBefore(InsertLoc, "override ");
+    if (InsertLoc.isInvalid())
+        return;
+
+    Rewrite.InsertText(InsertLoc, " override", false, false);
 
     const unsigned DiagID = Diag.getCustomDiagID(DiagnosticsEngine::Remark, "Added 'override' to overriding method");
     Diag.Report(Method->getLocation(), DiagID);
@@ -95,9 +95,8 @@ void RefactorHandler::handle_crange_for(const VarDecl *LoopVar, DiagnosticsEngin
 
     // Защита от дублей
     unsigned rawLoc = SM.getSpellingLoc(LoopVar->getLocation()).getRawEncoding();
-    if (crangeForLocations.count(rawLoc))
+    if (!crangeForLocations.emplace(rawLoc).second)
         return;
-    crangeForLocations.insert(rawLoc);
 
     TypeSourceInfo *TSI = LoopVar->getTypeSourceInfo();
     if (!TSI)
@@ -116,17 +115,17 @@ void RefactorHandler::handle_crange_for(const VarDecl *LoopVar, DiagnosticsEngin
     Diag.Report(LoopVar->getLocation(), DiagID);
 }
 
-clang::ast_matchers::DeclarationMatcher NvDtorMatcher() {
+auto NvDtorMatcher() {
     return cxxDestructorDecl(unless(isVirtual()), unless(isImplicit()), isExpansionInMainFile()).bind("nonVirtualDtor");
 }
 
-clang::ast_matchers::DeclarationMatcher NoOverrideMatcher() {
+auto NoOverrideMatcher() {
     return cxxMethodDecl(isOverride(), unless(hasAttr(clang::attr::Override)), unless(isImplicit()),
                          unless(cxxDestructorDecl()), isExpansionInMainFile())
         .bind("missingOverride");
 }
 
-clang::ast_matchers::StatementMatcher NoRefConstVarInRangeLoopMatcher() {
+auto NoRefConstVarInRangeLoopMatcher() {
     return cxxForRangeStmt(
         hasLoopVariable(varDecl(hasType(qualType(isConstQualified(), unless(referenceType()), unless(builtinType()))),
                                 isExpansionInMainFile())

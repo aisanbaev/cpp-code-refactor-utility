@@ -9,7 +9,7 @@ using namespace clang::ast_matchers;
 using namespace clang::tooling;
 
 std::string applyRefactorings(const std::string &Code) {
-    std::string ResultCode = Code;
+    std::string ResultCode;
 
     class TestAction : public clang::ASTFrontendAction {
     public:
@@ -37,7 +37,7 @@ std::string applyRefactorings(const std::string &Code) {
     bool Success =
         clang::tooling::runToolOnCodeWithArgs(std::make_unique<TestAction>(ResultCode), Code, Args, "input.cc");
 
-    return Success ? ResultCode : Code;
+    return Success && !ResultCode.empty() ? ResultCode : Code;
 }
 
 TEST(VirtualDtorTest, AddsVirtualWhenDerivedExists) {
@@ -82,6 +82,51 @@ class X { void g() {} };
 )cpp";
 
     EXPECT_EQ(applyRefactorings(Input), Input);
+}
+
+TEST(OverrideTest, AddsOverrideToPureVirtualMethodImplementation) {
+    constexpr const char *Input = R"cpp(
+class Base {
+public:
+    virtual void foo() = 0;
+};
+
+class Derived : public Base {
+public:
+    void foo() override {}
+};
+)cpp";
+
+    // Этот класс не должен измениться
+    EXPECT_EQ(applyRefactorings(Input), Input);
+}
+
+TEST(OverrideTest, AddsOverrideBeforePureSpecifierInDeclaration) {
+    constexpr const char *Input = R"cpp(
+class Base {
+public:
+    virtual void foo() = 0;
+};
+
+class Derived : public Base {
+public:
+    void foo() = 0;
+};
+)cpp";
+
+    constexpr const char *Expected = R"cpp(
+class Base {
+public:
+    virtual void foo() = 0;
+};
+
+class Derived : public Base {
+public:
+    void foo() override = 0;
+};
+)cpp";
+
+    EXPECT_EQ(applyRefactorings(Input), Expected);
 }
 
 TEST(RangeForTest, AddsAmpersandToConstStdString) {

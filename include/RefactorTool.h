@@ -1,14 +1,9 @@
 #pragma once
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Tooling/Tooling.h"
 #include <unordered_set>
-
-clang::ast_matchers::DeclarationMatcher NvDtorMatcher();
-clang::ast_matchers::DeclarationMatcher NoOverrideMatcher();
-clang::ast_matchers::StatementMatcher NoRefConstVarInRangeLoopMatcher();
 
 class RefactorHandler : public clang::ast_matchers::MatchFinder::MatchCallback {
 public:
@@ -17,19 +12,15 @@ public:
     // Мы проверяем тип совпадения по bind-именам и применяем рефакторинг.
     virtual void run(const clang::ast_matchers::MatchFinder::MatchResult &Result) override;
 
-protected:
+private:
     // 1. Невиртуальные деструкторы
     void handle_nv_dtor(const clang::CXXDestructorDecl *Dtor, clang::DiagnosticsEngine &Diag, clang::SourceManager &SM,
                         clang::ASTContext &Context);
-
     // 2. Методы без override
     void handle_miss_override(const clang::CXXMethodDecl *Method, clang::DiagnosticsEngine &Diag,
                               clang::SourceManager &SM);
-
     // 3. range-for без &
     void handle_crange_for(const clang::VarDecl *LoopVar, clang::DiagnosticsEngine &Diag, clang::SourceManager &SM);
-
-private:
     bool hasDerivedClass(const clang::CXXRecordDecl *Base, clang::ASTContext &Context);
 
 protected:
